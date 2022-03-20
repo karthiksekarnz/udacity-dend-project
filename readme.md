@@ -61,8 +61,8 @@ The available datasets are as follows:
 
 ```mermaid
 graph LR
-A[Fetch data from IMDB]->B[store in s3]->C[stage imdb data]
-D[Fetch data from TMDB]->E[store in s3]->F[stage tmdb data]
+A[Fetch data from IMDB]-->B[store in s3]-->C[stage imdb data]
+D[Fetch data from TMDB]-->E[store in s3]-->F[stage tmdb data]
 ```
 
 #### Star schema
