@@ -1,2 +1,13 @@
 .idea
+.DS_Store
+.bash_history
 *.iml
+*.cfg
+.cache
+.local
+.jupyter
+!.jupyter/jupyter_notebook_config.py
+.ivy2
+.ipynb_checkpoints
+.ipython
+input_data

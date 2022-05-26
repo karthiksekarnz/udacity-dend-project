@@ -1,0 +1,11 @@
+[KEYS]
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+
+[FILES]
+INPUT_DIR=s3a://udacity-dend-imdb-project/input_data
+OUTPUT_DIR=s3a://udacity-dend-imdb-project/output_data
+
+[FILTERS]
+year=2022
+language='en'

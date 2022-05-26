@@ -1,0 +1,14 @@
+version: "3"
+services:
+  pyspark:
+    image: "jupyter/all-spark-notebook:spark-2"
+    container_name: "jupyter-spark"
+    volumes:
+      - ./:/home/jovyan/
+#    environment:
+#      - SPARK_HOME=/usr/local/spark/
+#      - JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
+#      - SCALA_HOME=/usr/local/scala/
+#      - HADOOP_HOME=/usr/local/spark/
+    ports:
+      - "8888:8888"

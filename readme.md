@@ -1,68 +1,56 @@
-### Udacity Data Engineering Capstone project
-#### IMDB dataset
+## Udacity DataEngineering capstone project
+This the capstone project for Udacity DataEngineering nanodegree program.
 
-Each dataset is contained in a gzipped, tab-separated-values (TSV) formatted file in the UTF-8 character set.
-The first line in each file contains headers that describe what is in each column.
-A '\N' is used to denote that a particular field is missing or null for that title/name.
-The available datasets are as follows:
+### Objective
+The objective of this project is to apply the learning from the Udacity Data engineering course. 
 
-**title.akas.tsv.gz** - Contains the following information for titles:
-- titleId (string) - a tconst, an alphanumeric unique identifier of the title
-- ordering (integer) – a number to uniquely identify rows for a given titleId
-- title (string) – the localized title
-- region (string) - the region for this version of the title
-- language (string) - the language of the title
-- types (array) - Enumerated set of attributes for this alternative title. One or more of the following: "alternative", "dvd", "festival", "tv", "video", "working", "original", "imdbDisplay". New values may be added in the future without warning
-- attributes (array) - Additional terms to describe this alternative title, not enumerated
-- isOriginalTitle (boolean) – 0: not original title; 1: original title
+### Overview
+This is a fictional annual movie awards hosted by Sparkademy awards.<br>
+Spakademy wants to identify top movies to award based on IMDB users' votes.
 
-**title.basics.tsv.gz** - Contains the following information for titles:
-- tconst (string) - alphanumeric unique identifier of the title
-- titleType (string) – the type/format of the title (e.g. movie, short, tvseries, tvepisode, video, etc)
-- primaryTitle (string) – the more popular title / the title used by the filmmakers on promotional materials at the point of release
-- originalTitle (string) - original title, in the original language
-- isAdult (boolean) - 0: non-adult title; 1: adult title
-- startYear (YYYY) – represents the release year of a title. In the case of TV Series, it is the series start year
-- endYear (YYYY) – TV Series end year. '\N' for all other title types
-- runtimeMinutes – primary runtime of the title, in minutes
-- genres (string array) – includes up to three genres associated with the title
+As a data engineer I was asked to build a data model from the datasets, so they can analyse the data and identify the top rated movies.
+I am using Spark to build a datalake by writing parquet tables into S3. Full description of the datasets are below.
 
-**title.crew.tsv.gz** – Contains the director and writer information for all the titles in IMDb. Fields include:
-- tconst (string) - alphanumeric unique identifier of the title
-- directors (array of nconsts) - director(s) of the given title
-- writers (array of nconsts) – writer(s) of the given title
+### Project write up
+- #### Choice of tools
+    I have chosen Spark as my tool and build a data lake with parquet files in S3. The reason I have chosen these tools
+    is that the IMDB dataset is very huge and ratings keep changing all the time. Had I chosen a data warehouse like Redshift, I need to run a lot of update queries.
+- #### Scheduling
+    I'd use Airflow to schedule every morning 7am to download the IMDB datasets and the
+- #### The data was increased by 100x?
+    The IMDB dataset is huge, some csv files contains as much as 50 Million records. I have worked only with a subset of this dataset. 
+    I couldn't use Spark to it's full potential in the Udacity workspace, I'll use EMR to have Spark clusters and scale accordingly. <br>
+    I'll also try to use serverless solution like AWS Glue.
+- #### Sample analysis
 
-**title.episode.tsv.gz** – Contains the tv episode information. Fields include:
-- tconst (string) - alphanumeric identifier of episode
-- parentTconst (string) - alphanumeric identifier of the parent TV Series
-- seasonNumber (integer) – season number the episode belongs to
-- episodeNumber (integer) – episode number of the tconst in the TV series
+### IMDB dataset
+The full description of the IMDB dataset can be found here [https://www.imdb.com/interfaces/](https://www.imdb.com/interfaces/)
 
-**title.principals.tsv.gz** – Contains the principal cast/crew for titles
-- tconst (string) - alphanumeric unique identifier of the title
-- ordering (integer) – a number to uniquely identify rows for a given titleId
-- nconst (string) - alphanumeric unique identifier of the name/person
-- category (string) - the category of job that person was in
-- job (string) - the specific job title if applicable, else '\N'
-- characters (string) - the name of the character played if applicable, else '\N'
+Each dataset is contained in a gzipped, tab-separated-values (TSV) formatted file in the UTF-8 character set.<br>
+The available datasets are as follows:<br>
+- **title.basics.tsv.gz** <br>
+Contains all types of titles available in IMDB (e.g. movie, tv series, video game, etc) <br>~8.8M records
+- **title.akas.tsv.gz** <br>
+Contains additional information about titles (e.g: language, isOriginalTitle, etc.)
+- **title.principals.tsv.gz** <br> ~49.7M – Contains the principal cast/crew for titles
+- **title.ratings.tsv.gz** <br>
+Contains the IMDb rating and votes information for titles<br>
+~1.22M records
+- **name.basics.tsv.gz**<br>
+Contains the following information for names<br>
+~11.4M records
+  
+### TMDB data set
+The TMDB dataset is retrieved from kaggle [https://www.kaggle.com/datasets/edgartanaka1/tmdb-movies-and-series](https://www.kaggle.com/datasets/edgartanaka1/tmdb-movies-and-series)
+There are over 526,000 movies json files. 
 
-**title.ratings.tsv.gz** – Contains the IMDb rating and votes information for titles
-- tconst (string) - alphanumeric unique identifier of the title
-- averageRating – weighted average of all the individual user ratings
-- numVotes - number of votes the title has received
+### Star schema
+Read the CSV files from IMDB input data
 
-**name.basics.tsv.gz** – Contains the following information for names:
-- nconst (string) - alphanumeric unique identifier of the name/person
-- primaryName (string)– name by which the person is most often credited
-- birthYear – in YYYY format
-- deathYear – in YYYY format if applicable, else '\N'
-- primaryProfession (array of strings)– the top-3 professions of the person
-- knownForTitles (array of tconsts) – titles the person is known for
+- **movies_titles** - movie titles that are split by language/subfolder by years
+- **movies_details** - movie details like titles - split language/subfolder by years
+- **movies_ratings** - movie ratings from both imdb & tmdb - split language/subfolder by years
+- **movies_finances** - movie's finance details like revenue and budget
+- **movies_principal_crew** - movies' principal cast and crew.
+- **movies_crew_names** - Names of the member's of the cast and crew.
 
-```mermaid
-graph LR
-A[Fetch data from IMDB]-->B[store in s3]-->C[stage imdb data]
-D[Fetch data from TMDB]-->E[store in s3]-->F[stage tmdb data]
-```
-
-#### Star schema
