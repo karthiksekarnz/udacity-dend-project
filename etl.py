@@ -179,19 +179,19 @@ def process_movies_details(spark):
 
     # movies_details query combining imdb & tmdb movies
     movies_details = movies_titles_df \
-        .join(tmdb_movies_df, movies_titles_df.title_id == tmdb_movies_df.imdb_id, "left") \
+        .join(tmdb_movies_df, movies_titles_df.title_id == tmdb_movies_df.imdb_id, "left")\
         .select(
-        "imdb_title_id",
-        movies_titles_df.title,
-        movies_titles_df.original_title,
-        movies_titles_df.genres,
-        movies_titles_df.language,
-        movies_titles_df.region,
-        tmdb_movies_df.overview,
-        movies_titles_df.start_year,
-        movies_titles_df.runtime,
-        tmdb_movies_df.release_date
-    )
+            "imdb_title_id",
+            movies_titles_df.title,
+            movies_titles_df.original_title,
+            movies_titles_df.genres,
+            movies_titles_df.language,
+            movies_titles_df.region,
+            tmdb_movies_df.overview,
+            movies_titles_df.start_year,
+            movies_titles_df.runtime,
+            tmdb_movies_df.release_date
+        )
 
     # movies_details table parquet
     movies_details.write.partitionBy("region", "start_year").format("parquet") \
@@ -216,14 +216,14 @@ def process_movies_finances(spark):
     movies_finances = movies_details \
         .join(tmdb_movies_df, movies_details.imdb_title_id == tmdb_movies_df.imdb_id, "left") \
         .select(
-        col("imdb_id"),
-        movies_details.title,
-        movies_details.language,
-        movies_details.region,
-        movies_details.start_year,
-        col("revenue"),
-        col("budget")
-    )
+            col("imdb_id"),
+            movies_details.title,
+            movies_details.language,
+            movies_details.region,
+            movies_details.start_year,
+            col("revenue"),
+            col("budget")
+        )
 
     movies_finances.write.partitionBy("region", "start_year").format("parquet") \
         .save(output_dir + '/movies_finances', mode="overwrite")
@@ -252,16 +252,16 @@ def process_movies_ratings(spark):
         .join(imdb_ratings_df, movies_details.imdb_title_id == imdb_ratings_df.tconst, "left") \
         .join(tmdb_movies_df, movies_details.imdb_title_id == tmdb_movies_df.imdb_id, "left") \
         .select(
-        "imdb_title_id",
-        movies_details.title,
-        "region",
-        "language",
-        "start_year",
-        col("numVotes").alias("imdb_total_votes"),
-        col("averageRating").alias("imdb_avg_rating"),
-        col("vote_count").alias("tmdb_total_votes"),
-        col("vote_average").alias("tmdb_avg_rating")
-    )
+            "imdb_title_id",
+            movies_details.title,
+            "region",
+            "language",
+            "start_year",
+            col("numVotes").alias("imdb_total_votes"),
+            col("averageRating").alias("imdb_avg_rating"),
+            col("vote_count").alias("tmdb_total_votes"),
+            col("vote_average").alias("tmdb_avg_rating")
+        )
 
     # movies_ratings table write parquet
     movies_ratings.write.partitionBy("region", "start_year").format("parquet") \
@@ -322,38 +322,6 @@ def process_movies_crews(spark):
         .save(output_dir + '/movies_crew_names', mode="overwrite")
 
     logging.info('*** Finished processing movies crews ***')
-
-
-def perform_data_analysis(spark):
-    """
-    Perform data analysis on the transformed data
-
-    :param spark:
-    :return:
-    """
-    top_american_english_movies = spark.sql('''
-            SELECT 
-              imdb_title_id, 
-              collect_list(title) as title, 
-              imdb_total_votes, 
-              imdb_avg_rating, 
-              region, 
-              language, 
-              start_year 
-            FROM movies_ratings 
-            WHERE language IS NULL OR language = 'en' 
-            GROUP BY 
-              imdb_title_id, 
-              imdb_total_votes, 
-              imdb_avg_rating, 
-              region, 
-              language, 
-              start_year 
-            ORDER BY imdb_total_votes DESC LIMIT 10
-    ''')
-
-    print("Top 10 American movies")
-    top_american_english_movies.show()
 
 
 def get_movies_basic_details(spark):
@@ -422,8 +390,6 @@ def main():
     process_movies_ratings(spark)
     process_movies_finances(spark)
     process_movies_crews(spark)
-
-    perform_data_analysis(spark)
 
 
 if __name__ == "__main__":
