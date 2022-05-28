@@ -84,6 +84,9 @@ def process_imdb_movie_titles(spark):
     # Filter movie titles by year or a region(country)
     movies_titles = apply_filters(movies_titles)
 
+    # Check if data exists
+    check_if_data_exists(movies_titles)
+
     movies_titles.write.partitionBy("region", "start_year").format("parquet") \
         .save(output_dir + '/movies_titles', mode="overwrite")
 
@@ -104,12 +107,12 @@ def filter_imdb_movies(df: DataFrame):
 
 def cleanup_movie_titles(df: DataFrame):
     """
-    Cleanup movie titles, exclude movies without any region or year.
+    Cleanup movie titles, include only English titles and exclude movies without any region or year.
 
     :param df:
     :return:
     """
-    return df.filter(col("region").isNotNull() & col("start_year").isNotNull())
+    return df.filter((col("language") == "en") & col("region").isNotNull() & col("start_year").isNotNull())
 
 
 def apply_filters(df: DataFrame):
@@ -119,6 +122,8 @@ def apply_filters(df: DataFrame):
     :param df:
     :return:
     """
+
+    df = df.filter(col("region").isNotNull() & col("start_year").isNotNull())
 
     filter_by_region = config.get('FILTERS', 'region')
     filter_by_year = config.get('FILTERS', 'year')
@@ -175,17 +180,18 @@ def process_movies_details(spark):
     # movies_details query combining imdb & tmdb movies
     movies_details = movies_titles_df \
         .join(tmdb_movies_df, movies_titles_df.title_id == tmdb_movies_df.imdb_id, "left") \
-        .select(col("titleId").alias("imdb_title_id"),
-                movies_titles_df.title,
-                movies_titles_df.original_title,
-                movies_titles_df.genres,
-                "language",
-                "region",
-                tmdb_movies_df.overview,
-                "start_year",
-                "runtime",
-                tmdb_movies_df.release_date
-                )
+        .select(
+        "imdb_title_id",
+        movies_titles_df.title,
+        movies_titles_df.original_title,
+        movies_titles_df.genres,
+        movies_titles_df.language,
+        movies_titles_df.region,
+        tmdb_movies_df.overview,
+        movies_titles_df.start_year,
+        movies_titles_df.runtime,
+        tmdb_movies_df.release_date
+    )
 
     # movies_details table parquet
     movies_details.write.partitionBy("region", "start_year").format("parquet") \
@@ -203,20 +209,23 @@ def process_movies_finances(spark):
     """
     logging.info('*** Processing movies finances ***')
 
-    movies_details = get_movies_details(spark)
+    movies_details = get_movies_basic_details(spark)
     tmdb_movies_df = spark.read.parquet(output_dir + '/tmdb_movies')
 
     # Movies finances
-    movies_finances = tmdb_movies_df.join(movies_details, tmdb_movies_df.imdb_id == movies_details.titleId) \
+    movies_finances = movies_details \
+        .join(tmdb_movies_df, movies_details.imdb_title_id == tmdb_movies_df.imdb_id, "left") \
         .select(
         col("imdb_id"),
         movies_details.title,
+        movies_details.language,
         movies_details.region,
-        movies_details.startYear,
+        movies_details.start_year,
         col("revenue"),
-        col("budget"))
+        col("budget")
+    )
 
-    movies_finances.write.partitionBy("region", "startYear").format("parquet") \
+    movies_finances.write.partitionBy("region", "start_year").format("parquet") \
         .save(output_dir + '/movies_finances', mode="overwrite")
 
     logging.info('*** Finished processing movies finances ***')
@@ -231,7 +240,7 @@ def process_movies_ratings(spark):
     """
     logging.info('*** Processing movies ratings ***')
 
-    movies_details = get_movies_details(spark)
+    movies_details = get_movies_basic_details(spark)
     tmdb_movies_df = get_tmdb_movies(spark)
 
     # IMDB ratings DF
@@ -239,25 +248,23 @@ def process_movies_ratings(spark):
         .csv(imdb_input + '/title.ratings.tsv.gz', sep='\t')
 
     # IMDB movie ratings query
-    movies_ratings = imdb_ratings_df.join(movies_details, imdb_ratings_df.tconst == movies_details.imdb_title_id) \
-        .join(tmdb_movies_df, imdb_ratings_df.tconst == tmdb_movies_df.imdb_id, "left") \
+    movies_ratings = movies_details \
+        .join(imdb_ratings_df, movies_details.imdb_title_id == imdb_ratings_df.tconst, "left") \
+        .join(tmdb_movies_df, movies_details.imdb_title_id == tmdb_movies_df.imdb_id, "left") \
         .select(
         "imdb_title_id",
         movies_details.title,
         "region",
+        "language",
         "start_year",
         col("numVotes").alias("imdb_total_votes"),
         col("averageRating").alias("imdb_avg_rating"),
         col("vote_count").alias("tmdb_total_votes"),
-        col("vote_average").alias("tmdb_avg_rating"))
-
-    english_movie_regions = ['US', 'GB', 'CA', 'AU', 'NZ']
-    # Top 5 movies
-    top_rated_movies = movies_ratings.filter(col("region").isin(english_movie_regions)).orderBy(
-        ["imdb_total_votes", "imdb_avg_rating"], ascending=[0, 0]).limit(5).collect()
+        col("vote_average").alias("tmdb_avg_rating")
+    )
 
     # movies_ratings table write parquet
-    movies_ratings.write.partitionBy("region", "startYear").format("parquet") \
+    movies_ratings.write.partitionBy("region", "start_year").format("parquet") \
         .save(output_dir + '/movies_ratings', mode="overwrite")
 
     logging.info('*** Finished processing movies ratings ***')
@@ -272,7 +279,7 @@ def process_movies_crews(spark):
     """
     logging.info('*** Processing movies crews ***')
 
-    movies_details = get_movies_details(spark)
+    movies_details = get_movies_basic_details(spark)
 
     # movie title ids
     movie_title_ids = movies_details.select("imdb_title_id").distinct() \
@@ -317,6 +324,49 @@ def process_movies_crews(spark):
     logging.info('*** Finished processing movies crews ***')
 
 
+def perform_data_analysis(spark):
+    """
+    Perform data analysis on the transformed data
+
+    :param spark:
+    :return:
+    """
+    top_american_english_movies = spark.sql('''
+            SELECT 
+              imdb_title_id, 
+              collect_list(title) as title, 
+              imdb_total_votes, 
+              imdb_avg_rating, 
+              region, 
+              language, 
+              start_year 
+            FROM movies_ratings 
+            WHERE language IS NULL OR language = 'en' 
+            GROUP BY 
+              imdb_title_id, 
+              imdb_total_votes, 
+              imdb_avg_rating, 
+              region, 
+              language, 
+              start_year 
+            ORDER BY imdb_total_votes DESC LIMIT 10
+    ''')
+
+    print("Top 10 American movies")
+    top_american_english_movies.show()
+
+
+def get_movies_basic_details(spark):
+    """
+    Read the parquet table to get movies details
+
+    :param spark:
+    :return:
+    """
+
+    return spark.read.parquet(output_dir + '/movies_titles')
+
+
 def get_movies_details(spark):
     """
     Read the parquet table to get movies details
@@ -339,6 +389,22 @@ def get_tmdb_movies(spark):
     return spark.read.parquet(output_dir + '/tmdb_movies')
 
 
+def check_if_data_exists(df: DataFrame):
+    """
+    Check for data quality if at least 1 row exists
+
+    :param df:
+    :return:
+    """
+    try:
+        item = df.take(1)
+
+        if len(item) < 1:
+            raise ValueError(f"There are no records in the dataframe.")
+    except ValueError:
+        print("Unable to run data quality check command.")
+
+
 def main():
     """
     Main function
@@ -356,6 +422,8 @@ def main():
     process_movies_ratings(spark)
     process_movies_finances(spark)
     process_movies_crews(spark)
+
+    perform_data_analysis(spark)
 
 
 if __name__ == "__main__":
