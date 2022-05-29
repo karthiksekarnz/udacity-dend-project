@@ -141,6 +141,7 @@ python3 ./etl.py
 
 ### Copyright
 <p>This is capstone project submission by Karthik Sekar, New Zealand as part of Udacity Data Engineering project.</p>
+
+<p>Refer to [Udacity Honor code](https://www.udacity.com/legal/en-us/honor-code)</p>
 <p>You can use this repository to get an idea of the capstone project but using it as-is is plagarism.</p>
-<p>Refer to [Udacity honor code](https://www.udacity.com/legal/en-us/honor-code).</p>
 <p>Copyright © 2022, Karthik Sekar, New Zealand.</p>
