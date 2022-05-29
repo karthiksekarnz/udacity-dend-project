@@ -36,7 +36,7 @@ The scope of the project is to build an ELT data lake from the datasets and writ
 - **movies_principal_crew** - movies' principal cast and crew.
 - **movies_crew_names** - Names of the member's of the cast and crew.
 
-![Screen Shot 2022-05-29 at 3 04 35 PM](https://user-images.githubusercontent.com/2171885/170850175-ef3a4149-1c16-4e61-ad76-91cf17345b98.png)
+![Screen Shot 2022-05-29 at 3 13 29 PM](https://user-images.githubusercontent.com/2171885/170850399-2ab18d69-e92a-4062-b792-a24039634ed7.png)
 
 ### The choice of tools, technologies, and data model are justified well.
 #### Data model
