@@ -116,11 +116,20 @@ There are over 526,000 movies json files.
   Movies' working title and popular title share the same imdb id.
 
 #### Instruction to run the scripts
+<p>The ETL script settings can be configured using the settings.cfg file.<br>
+The default year is set to 2022 to filter minimal data so that the script finishes sooner.</p>
+
 #### Data analysis - Run queries on existing data model
-Run the following command in the Udacity workspace to see the results after the ETL is run.
+<p>Run the following command in the Udacity workspace to see the results after the ETL is run.</p>
+<p>The results table shown in the readme are for 2021, here's the instructions to verify those results.<br>
+Change the OUTPUT_DIR setting in the config to s3a://udacity-dend-imdb-project/output_data and set year to 2021.
+</p>
+
+
 ```python
 python3 ./results.py
 ```
+
 #### ETL - Beware! this will overwrite the existing data)
 Run the following command in the Udacity workspace to do perform ELT of the datasets.<br>
 The ELT scripts can run for a long time and will overwrite existing data.

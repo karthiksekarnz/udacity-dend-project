@@ -53,7 +53,6 @@ def process_imdb_movie_titles(spark):
     imdb_movie_titles_df = imdb_titles_df.select(
         col("tconst").alias("title_id"),
         col("titleType").alias("title_type"),
-        col("titleType").alias("title_type"),
         col("isAdult").alias("is_adult"),
         col("startYear").alias("start_year")
     )
@@ -146,9 +145,13 @@ def process_tmdb_movies(spark):
     """
     logging.warning('*** Processing TMDB movies titles ***')
 
-    tmdb_movies_df = spark.read.json(tmdb_input + '/movies_list', multiLine=True)
+    tmdb_movies = spark.read.json(tmdb_input + '/movies_list', multiLine=True)
+    tmdb_movies = tmdb_movies.select(
+        "id", "imdb_id", "revenue", "budget", "overview", "popularity", "release_date",
+        "status", "vote_average", "vote_count"
+    )
 
-    tmdb_movies_df.write.format("parquet") \
+    tmdb_movies.write.format("parquet") \
         .save(output_dir + '/tmdb_movies', mode="overwrite")
 
     logging.warning('*** Finished processing TMDB movies titles ***')
@@ -164,11 +167,11 @@ def process_movies_titles_details(spark):
 
     Returns: None
     """
-    logging.warning('*** Processing movies details ***')
+    logging.warning('*** Processing movies titles details ***')
 
     imdb_titles_df = read_imdb_titles(spark)
     imdb_movie_titles_df = imdb_titles_df.select(
-        col("tconst").alias("title_id"),
+        col("tconst").alias("imdb_title_id"),
         col("titleType").alias("title_type"),
         col("primaryTitle").alias("primary_title"),
         col("originalTitle").alias("original_title"),
@@ -185,12 +188,13 @@ def process_movies_titles_details(spark):
 
     # movies_details query combining imdb & tmdb movies
     movies_details = imdb_movie_titles_df \
+        .join(imdb_title_akas_df, imdb_movie_titles_df.imdb_title_id == imdb_title_akas_df.titleId, "left")\
         .join(tmdb_movies_df, imdb_movie_titles_df.imdb_title_id == tmdb_movies_df.imdb_id, "left") \
         .select(
             "imdb_title_id",
-            imdb_movie_titles_df.title,
+            imdb_title_akas_df.title,
             imdb_movie_titles_df.original_title,
-            imdb_title_akas_df.is_original_title,
+            col("isOriginalTitle").alias("is_original_title"),
             imdb_title_akas_df.ordering,
             imdb_movie_titles_df.genres,
             imdb_movie_titles_df.language,
@@ -205,7 +209,7 @@ def process_movies_titles_details(spark):
     movies_details.write.partitionBy("region", "start_year").format("parquet") \
         .save(output_dir + '/movies_titles_details', mode="overwrite")
 
-    logging.warning('*** Finished processing movies details ***')
+    logging.warning('*** Finished processing movies titles details ***')
 
 
 def process_movies_finances(spark):
