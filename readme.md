@@ -81,7 +81,7 @@ I may also loose the sub folder and flatten the partition since I am going to co
 <p>The purpose of this data model is to retrieve top movies based on IMDB ratings for Sparkademy awards.
 I create a temporary view from movie_ratings parquet table and retrieved the top 10 movies for 2021.</p>
 <p> 
-I've restricted the scope for this project to just ETL, build a data model and extract results from the model parquet tables for the Sparkademy awards,<br>
+I've restricted the scope for this project to just ETL, build a data model and extract results from the model parquet tables for the Sparkademy awards,
 I've left the analysis table out of scope of this project.</p>
 <p>The ETL is already run on only one year from settings, that's why we don't have a where condition for the year in the query.<br>
 If the data model is done across multiple years and countries (regions), I'll query the data differently and use Cassandra or Redshift in my pipeline. 
