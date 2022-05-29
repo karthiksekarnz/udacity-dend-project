@@ -206,6 +206,8 @@ def process_movies_titles_details(spark):
             tmdb_movies_df.release_date
     )
 
+    movies_details = apply_filters(movies_details)
+
     # movies_details table parquet
     movies_details.write.partitionBy("region", "start_year").format("parquet") \
         .save(output_dir + '/movies_titles_details', mode="overwrite")
