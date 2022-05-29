@@ -55,6 +55,11 @@ I'll use a join query only if I need to fetch additional details about the movie
 I have chosen Spark & S3 parquet to build a data lake because the IMDB dataset is very huge and ratings keep changing all the time.<br>
 Had I chosen a data warehouse like Redshift, we need to run a lot of update queries on a daily basis, and it might end up.</p>
 
+### Challenges
+The challenge with the TMDB dataset is it contains a lot of small JSON files.<br>
+It turned out that Spark seem to be efficient with few big files rather than a lot of small files.<br>
+I was not able to use AWS Glue with the Udacity account, I'll use AWS glue crawler for this use case in the future.
+
 ### The data was increased by 100x?
 <p>The IMDB dataset is huge, some csv files contains as much as 50 Million records. I have used only with a subset of this dataset for a year.
 I couldn't use Spark to it's full potential in the Udacity workspace, I was getting out of memory errors.</p>
@@ -63,13 +68,53 @@ I couldn't use Spark to it's full potential in the Udacity workspace, I was gett
 ### The pipelines would be run on a daily basis by 7 am every day?
   I'd use Airflow to schedule every morning 7am potentially download the IMDB and TMDB datasets use of AWS Lambda and then do the loading and transforming of the CSVs into parquet files.
 
-### Challenges
-  The challenge with the TMDB dataset is it contains a lot of small JSON files.<br>
-  It turned out that Spark seem to be efficient with few big files rather than a lot of small files.<br>
-  I was not able to use AWS Glue with the Udacity account, I'll use AWS glue crawler for this use case in future.
-### Sample analysis
-  Extracting the top movies of the previous year through IMDB dataset and TMDB.<br>
-The top 10 most voted american english movies of 2021 are below.
+### The database needed to be accessed by 100+ people 
+<p>The queries results run on the data model can be stored in a database. <br>
+I have already denormalised my tables so I'll use Cassandra for both the heavy on read and write scenarios.<br>
+If the read requires a lot of join queries then I'll use Redshift.
+</p>
+
+<p>I will still keep either regions(countries) or year as partition key depending on the use case since the IMDB dataset always spans across multiple countries.<br>
+I may also loose the sub folder and flatten the partition since I am going to copy the transformed data into a database.</p>
+
+### Process result
+<p>The purpose of this data model is to retrieve top movies based on IMDB ratings for Sparkademy awards.
+I create a temporary view from movie_ratings parquet table and retrieved the top 10 movies for 2021.</p>
+<p> 
+I've restricted the scope for this project to just ETL, build a data model and extract results from the model parquet tables for the Sparkademy awards,<br>
+I've left the analysis table out of scope of this project.</p>
+<p>The ETL is already run on only one year from settings, that's why we don't have a where condition for the year in the query.<br>
+If the data model is done across multiple years and countries (regions), I'll query the data differently and use Cassandra or Redshift in my pipeline. 
+</p>
+
+```jupyter
+movies_ratings = spark.parquet.read(output_dir + '/movies_ratings')
+movies_ratings.createOrReplaceTempView("movies_ratings")
+
+top_american_english_movies = spark.sql('''
+        SELECT 
+          imdb_title_id, 
+          collect_list(title) as title, 
+          imdb_total_votes, 
+          imdb_avg_rating, 
+          region, 
+          language, 
+          start_year 
+        FROM movies_ratings 
+        WHERE language IS NULL OR language = 'en' 
+        GROUP BY 
+          imdb_title_id, 
+          imdb_total_votes, 
+          imdb_avg_rating, 
+          region, 
+          language, 
+          start_year 
+        ORDER BY imdb_total_votes DESC
+''')
+```
+
+#### Query results (Top 10 movies of 2021 based on IMDB Ratings) 
+
 ```jupyter
 +-------------+------------------------------------------------------+----------------+---------------+------+--------+----------+
 |imdb_title_id|title                                                 |imdb_total_votes|imdb_avg_rating|region|language|start_year|
@@ -140,8 +185,8 @@ python3 ./etl.py
 ```
 
 ### Copyright
-<p>This is capstone project submission by Karthik Sekar, New Zealand as part of Udacity Data Engineering project.</p>
+<p>This is capstone project submission by Karthik Sekar, New Zealand as part of Udacity Data Engineering project.
 
-<p>Refer to [Udacity Honor code](https://www.udacity.com/legal/en-us/honor-code)</p>
-<p>You can use this repository to get an idea of the capstone project but using it as-is is plagarism.</p>
+Refer to [Udacity Honor code](https://www.udacity.com/legal/en-us/honor-code)
+you can use this repository to get an idea of the capstone project but using it as-is is plagarism.</p>
 <p>Copyright © 2022, Karthik Sekar, New Zealand.</p>
