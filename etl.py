@@ -33,6 +33,8 @@ def create_spark_session():
         .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:2.7.0") \
         .getOrCreate()
 
+    spark.sparkContext.setLogLevel("WARN")
+
     return spark
 
 
@@ -43,22 +45,17 @@ def process_imdb_movie_titles(spark):
     :param spark:
     :return:
     """
-    logging.info('*** Processing IMDB movies titles ***')
+    logging.warning('*** Processing IMDB movies titles ***')
 
     # imdb titles
-    imdb_titles_df = spark.read.options(header=True, inferSchema=True, nullValue="\\N") \
-        .csv(imdb_input + '/title.basics.tsv.gz', sep='\t')
+    imdb_titles_df = read_imdb_titles(spark)
 
     imdb_movie_titles_df = imdb_titles_df.select(
         col("tconst").alias("title_id"),
         col("titleType").alias("title_type"),
-        col("primaryTitle").alias("primary_title"),
-        col("originalTitle").alias("original_title"),
-        col("genres"),
-        col("runtimeMinutes").alias("runtime"),
+        col("titleType").alias("title_type"),
         col("isAdult").alias("is_adult"),
-        col("startYear").alias("start_year"),
-        col("endYear").alias("end_year")
+        col("startYear").alias("start_year")
     )
 
     imdb_movie_titles_df = filter_imdb_movies(imdb_movie_titles_df)
@@ -70,13 +67,10 @@ def process_imdb_movie_titles(spark):
         .join(imdb_title_akas_df, imdb_movie_titles_df.title_id == imdb_title_akas_df.titleId, "left") \
         .select(col("titleId").alias("imdb_title_id"),
                 imdb_title_akas_df.title,
-                imdb_movie_titles_df.original_title,
-                imdb_movie_titles_df.genres,
                 "is_adult",
                 "language",
                 "region",
                 "start_year",
-                "runtime",
                 ).distinct()
 
     movies_titles = cleanup_movie_titles(movies_titles)
@@ -90,7 +84,7 @@ def process_imdb_movie_titles(spark):
     movies_titles.write.partitionBy("region", "start_year").format("parquet") \
         .save(output_dir + '/movies_titles', mode="overwrite")
 
-    logging.info('*** Finished processing IMDB movies titles ***')
+    logging.warning('*** Finished processing IMDB movies titles ***')
 
 
 def filter_imdb_movies(df: DataFrame):
@@ -100,9 +94,7 @@ def filter_imdb_movies(df: DataFrame):
     :param df:
     :return:
     """
-    filter_str = "titleType == '{0}' & isAdult == '{1}'".format("movie", "0")
-
-    return df.filter(filter_str)
+    return df.filter((df['title_type'] == 'movie') & (df['is_adult'] == '0'))
 
 
 def cleanup_movie_titles(df: DataFrame):
@@ -152,17 +144,17 @@ def process_tmdb_movies(spark):
     :param spark:
     :return:
     """
-    logging.info('*** Processing TMDB movies titles ***')
+    logging.warning('*** Processing TMDB movies titles ***')
 
     tmdb_movies_df = spark.read.json(tmdb_input + '/movies_list', multiLine=True)
 
     tmdb_movies_df.write.format("parquet") \
         .save(output_dir + '/tmdb_movies', mode="overwrite")
 
-    logging.info('*** Finished processing TMDB movies titles ***')
+    logging.warning('*** Finished processing TMDB movies titles ***')
 
 
-def process_movies_details(spark):
+def process_movies_titles_details(spark):
     """
     Processes imdb data and writes them into parquet files
 
@@ -172,32 +164,48 @@ def process_movies_details(spark):
 
     Returns: None
     """
-    logging.info('*** Processing movies details ***')
+    logging.warning('*** Processing movies details ***')
 
-    movies_titles_df = spark.read.parquet(output_dir + '/movies_titles')
+    imdb_titles_df = read_imdb_titles(spark)
+    imdb_movie_titles_df = imdb_titles_df.select(
+        col("tconst").alias("title_id"),
+        col("titleType").alias("title_type"),
+        col("primaryTitle").alias("primary_title"),
+        col("originalTitle").alias("original_title"),
+        col("genres"),
+        col("runtimeMinutes").alias("runtime"),
+        col("isAdult").alias("is_adult"),
+        col("startYear").alias("start_year"),
+    )
+
+    imdb_movie_titles_df = filter_imdb_movies(imdb_movie_titles_df)
+    imdb_title_akas_df = read_imdb_akas_titles(spark)
+
     tmdb_movies_df = get_tmdb_movies(spark)
 
     # movies_details query combining imdb & tmdb movies
-    movies_details = movies_titles_df \
-        .join(tmdb_movies_df, movies_titles_df.title_id == tmdb_movies_df.imdb_id, "left")\
+    movies_details = imdb_movie_titles_df \
+        .join(tmdb_movies_df, imdb_movie_titles_df.imdb_title_id == tmdb_movies_df.imdb_id, "left") \
         .select(
             "imdb_title_id",
-            movies_titles_df.title,
-            movies_titles_df.original_title,
-            movies_titles_df.genres,
-            movies_titles_df.language,
-            movies_titles_df.region,
+            imdb_movie_titles_df.title,
+            imdb_movie_titles_df.original_title,
+            imdb_title_akas_df.is_original_title,
+            imdb_title_akas_df.ordering,
+            imdb_movie_titles_df.genres,
+            imdb_movie_titles_df.language,
+            imdb_movie_titles_df.region,
             tmdb_movies_df.overview,
-            movies_titles_df.start_year,
-            movies_titles_df.runtime,
+            imdb_movie_titles_df.start_year,
+            imdb_movie_titles_df.runtime,
             tmdb_movies_df.release_date
-        )
+    )
 
     # movies_details table parquet
     movies_details.write.partitionBy("region", "start_year").format("parquet") \
-        .save(output_dir + '/movies_details', mode="overwrite")
+        .save(output_dir + '/movies_titles_details', mode="overwrite")
 
-    logging.info('*** Finished processing movies details ***')
+    logging.warning('*** Finished processing movies details ***')
 
 
 def process_movies_finances(spark):
@@ -207,7 +215,7 @@ def process_movies_finances(spark):
     :param spark:
     :return:
     """
-    logging.info('*** Processing movies finances ***')
+    logging.warning('*** Processing movies finances ***')
 
     movies_details = get_movies_basic_details(spark)
     tmdb_movies_df = spark.read.parquet(output_dir + '/tmdb_movies')
@@ -216,7 +224,7 @@ def process_movies_finances(spark):
     movies_finances = movies_details \
         .join(tmdb_movies_df, movies_details.imdb_title_id == tmdb_movies_df.imdb_id, "left") \
         .select(
-            col("imdb_id"),
+            movies_details.imdb_title_id,
             movies_details.title,
             movies_details.language,
             movies_details.region,
@@ -228,7 +236,7 @@ def process_movies_finances(spark):
     movies_finances.write.partitionBy("region", "start_year").format("parquet") \
         .save(output_dir + '/movies_finances', mode="overwrite")
 
-    logging.info('*** Finished processing movies finances ***')
+    logging.warning('*** Finished processing movies finances ***')
 
 
 def process_movies_ratings(spark):
@@ -238,7 +246,7 @@ def process_movies_ratings(spark):
     :param spark:
     :return:
     """
-    logging.info('*** Processing movies ratings ***')
+    logging.warning('*** Processing movies ratings ***')
 
     movies_details = get_movies_basic_details(spark)
     tmdb_movies_df = get_tmdb_movies(spark)
@@ -267,7 +275,7 @@ def process_movies_ratings(spark):
     movies_ratings.write.partitionBy("region", "start_year").format("parquet") \
         .save(output_dir + '/movies_ratings', mode="overwrite")
 
-    logging.info('*** Finished processing movies ratings ***')
+    logging.warning('*** Finished processing movies ratings ***')
 
 
 def process_movies_crews(spark):
@@ -277,7 +285,7 @@ def process_movies_crews(spark):
     :param spark:
     :return:
     """
-    logging.info('*** Processing movies crews ***')
+    logging.warning('*** Processing movies crews ***')
 
     movies_details = get_movies_basic_details(spark)
 
@@ -321,7 +329,7 @@ def process_movies_crews(spark):
     imdb_crew_names.write.partitionBy("birth_year").format("parquet") \
         .save(output_dir + '/movies_crew_names', mode="overwrite")
 
-    logging.info('*** Finished processing movies crews ***')
+    logging.warning('*** Finished processing movies crews ***')
 
 
 def get_movies_basic_details(spark):
@@ -335,7 +343,29 @@ def get_movies_basic_details(spark):
     return spark.read.parquet(output_dir + '/movies_titles')
 
 
-def get_movies_details(spark):
+def read_imdb_titles(spark):
+    """
+    Reads imdb basic titles
+
+    :param spark:
+    :return:
+    """
+    return spark.read.options(header=True, inferSchema=True, nullValue="\\N") \
+        .csv(imdb_input + '/title.basics.tsv.gz', sep='\t')
+
+
+def read_imdb_akas_titles(spark):
+    """
+    Reads imdb akas titles
+
+    :param spark:
+    :return:
+    """
+    return spark.read.options(header=True, inferSchema=True, nullValue="\\N") \
+        .csv(imdb_input + '/title.akas.tsv.gz', sep='\t')
+
+
+def get_movies_titles_details(spark):
     """
     Read the parquet table to get movies details
 
@@ -343,7 +373,7 @@ def get_movies_details(spark):
     :return:
     """
 
-    return spark.read.parquet(output_dir + '/movies_details')
+    return spark.read.parquet(output_dir + '/movies_titles_details')
 
 
 def get_tmdb_movies(spark):
@@ -386,10 +416,12 @@ def main():
 
     process_imdb_movie_titles(spark)
     process_tmdb_movies(spark)
-    process_movies_details(spark)
+    process_movies_titles_details(spark)
     process_movies_ratings(spark)
     process_movies_finances(spark)
     process_movies_crews(spark)
+
+    logging.warning('*** Congratulations! the ETL has completed successfully! ***')
 
 
 if __name__ == "__main__":

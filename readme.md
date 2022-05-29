@@ -31,21 +31,27 @@ The scope of the project is to build an ELT data lake from the datasets and writ
 - **movies_finances** - movie's finance details like revenue and budget
 
 #### Dimension tables
-- **movies_titles** - movie titles that are split by language/subfolder by years
-- **movies_details** - movie details like titles - split language/subfolder by years
+- **movies_titles** - movies titles that are split by region/subfolder by years
+- **movies_details** - movie details like titles - split by region/subfolder by years
 - **movies_principal_crew** - movies' principal cast and crew.
 - **movies_crew_names** - Names of the member's of the cast and crew.
 
 ### The choice of tools, technologies, and data model are justified well.
 #### Data model
-<p>I have de-normalised fact tables in a way to include basic information like movie title, region, language and year.</p>
-<p>The movie data set is huge in millions because it spans across multiple countries(regions), languages and several years since 1800s. 
+<p>I have de-normalised fact tables in a way to include basic information like movie title, region, language and year.<br>
+The movie data set is huge in millions because it spans across multiple countries(regions), languages and several years since 1800s.<br>
 </p>
-<p>I have split the partition across different years and regions. Join queries can be really expensive so I have de-normalised them</p>
+<p>
+I have split the partition across different years and regions because Join queries can be really expensive so I have de-normalised them to fetch basic details.
+</p>
+<p>Analysis can be run on movie ratings without any complex joins so we can query movie ratings for only specific country, language or a year.<br>
+I'll use a join query only if I need to fetch additional details about the movies.
+</p>
+
 #### Tools
-<p>I have chosen Spark and built a data lake with parquet files in S3. <br>
-I have chosen Spark & S3 parquet because the IMDB dataset is very huge and ratings keep changing all the time. </p>
-<p>Had I chosen a data warehouse like Redshift, we need to run a lot of update queries on a daily basis, and it might end up.</p>
+<p>
+I have chosen Spark & S3 parquet to build a data lake because the IMDB dataset is very huge and ratings keep changing all the time.<br>
+Had I chosen a data warehouse like Redshift, we need to run a lot of update queries on a daily basis, and it might end up.</p>
 
 ### The data was increased by 100x?
 <p>The IMDB dataset is huge, some csv files contains as much as 50 Million records. I have used only with a subset of this dataset for a year.
@@ -110,12 +116,12 @@ There are over 526,000 movies json files.
   Movies' working title and popular title share the same imdb id.
 
 #### Instruction to run the scripts
-- Data analysis - Run queries on existing data model
-  Run the following command in the Udacity workspace to see the results after the ETL is run.
+#### Data analysis - Run queries on existing data model
+Run the following command in the Udacity workspace to see the results after the ETL is run.
 ```python
 python3 ./results.py
 ```
-- ETL - Beware! this will overwrite the existing data)
+#### ETL - Beware! this will overwrite the existing data)
 Run the following command in the Udacity workspace to do perform ELT of the datasets.<br>
 The ELT scripts can run for a long time and will overwrite existing data.
 ```python
